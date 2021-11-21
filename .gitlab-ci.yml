@@ -1,0 +1,259 @@
+stages:
+  - build
+  - deploy
+  - migrate
+  - collectstatic
+
+variables:
+  GIT_CLEAN_FLAGS: ''
+
+.development: &development
+  variables:
+    BACKEND_IMAGE: dev-domain/usdc/usdc-backend-development:${CI_PIPELINE_ID}
+    BACKEND_ENV: dev
+
+    LOG_LEVEL: DEBUG
+    LOGGER_DIR: /usdc/logs
+
+    STATIC_ROOT: /usdc/staticfiles
+    MEDIA_ROOT: /usdc/mediafiles
+    MEDIA_HOST: 'https://dev-domain/media'
+
+    MYSQL_DATABASE: usdc
+    MYSQL_USER: usdc
+    MYSQL_PASSWORD: AGD@4561
+    MYSQL_ROOT_PASSWORD: AGD@4561
+    MYSQL_HOST: dev-database
+    MYSQL_PORT: 3306
+    MYSQL_PUBLIC_PORT: 0422
+
+    PHPMYADMIN_HOST: usdc_phpmyadmin
+    PHPMYADMIN_PORT: 30
+    PHPMYADMIN_PUBLIC_PORT: 633
+
+    JWT_SECRET_KEY: '8916239ASDasdfkhjasd'
+    JWT_EXP_DELTA_IN_MINS: 1440
+    JWT_REFRESH_EXP_DELTA_IN_DAYS: 7
+
+    ADMIN_SITE_HEADER: 'USDC Superadmin'
+    ADMIN_SITE_TITLE: 'USDC Superadmin'
+
+    REDIS_HOST: dev_redis
+    REDIS_PORT: 9912
+    REDIS_PUBLIC_PORT: 7312
+    REDIS_CELERY_DATABASE: 1
+
+    ALERT_API_KEY: eyJ0eXAiOiJKVihsytCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiQUxFUlQiLCJpYXQiOjE2MDMxODA1ODR9.-XDwsz8_Q0_celLAw2fcPygGOq1T8IE9fXy7Xt9M2MU
+  environment: development
+  only:
+    - develop
+
+.deploy development: &deploy_development
+  <<: *development
+  tags:
+    - build
+    - development
+    - deploy
+
+.migrate script: &migrate_script
+  stage: migrate
+  script:
+    - pwd
+    - docker-compose config
+    - docker-compose run --rm api python manage.py showmigrations || true
+    - docker-compose run --rm api python manage.py migrate --noinput
+
+.collectstatic: &collectstatic_script
+  stage: collectstatic
+  script:
+    - pwd
+    # - echo $BACKEND_ENV
+    - docker-compose config
+    - docker-compose run --rm api python manage.py collectstatic --noinput
+
+build backend for development:
+  <<: *deploy_development
+  script:
+    - docker-compose config
+    - docker-compose build
+    - docker-compose push
+  stage: build
+  retry: 1
+
+deploy backend on development:
+  <<: *deploy_development
+  script:
+    - pwd
+    - docker info
+    - docker-compose config
+    - docker-compose up -d
+  stage: deploy
+  
+migrate for development:
+  <<: *deploy_development
+  <<: *migrate_script
+
+collectstatic for development:
+  <<: *deploy_development
+  <<: *collectstatic_script
+
+.rc: &rc
+  variables:
+    BACKEND_IMAGE: 14.241.226.192:5000/usdc/usdc-backend-development:${CI_PIPELINE_ID}
+    BACKEND_ENV: production
+
+    LOG_LEVEL: DEBUG
+    LOGGER_DIR: /usdc/logs
+
+    STATIC_ROOT: /usdc/staticfiles
+    MEDIA_ROOT: /usdc/mediafiles
+    MEDIA_HOST: 'https://portal-api.usdc.vn/media'
+
+    MYSQL_DATABASE: usdc_portal
+    MYSQL_USER: usdc_portal
+    MYSQL_PASSWORD: 3jE6JgmQ5kvadbxG
+    MYSQL_ROOT_PASSWORD: zEd5TvNdS25Jv677
+    MYSQL_HOST: mariadb_bootstrap 
+    MYSQL_PORT: 3306
+    MYSQL_PUBLIC_PORT: 3306
+
+    JWT_SECRET_KEY: '(%#2jnz(bmp(l=%@fvqb(a79*th8pf)c%$qpo-@x9(n(%glw1r'
+    JWT_EXP_DELTA_IN_MINS: 1440
+    JWT_REFRESH_EXP_DELTA_IN_DAYS: 7
+
+    ADMIN_SITE_HEADER: 'usdc Superadmin'
+    ADMIN_SITE_TITLE: 'usdc Superadmin'
+
+    REDIS_HOST: usdc_redis
+    REDIS_PORT: 6379
+    REDIS_PUBLIC_PORT: 6379
+    REDIS_CELERY_DATABASE: 1
+
+    ALERT_API_KEY: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiQUxFUlQiLCJpYXQiOjE2MDMxODA1OTh9.e3cEEb0DJ4h3t_R8VjO3hw3pXDk4j0227PbHAp6qO0E
+  environment: rc
+  only:
+    - /^rc.*/
+  except:
+    - branches
+
+build backend on rc:
+  <<: *rc
+  script:
+    - pwd
+    - docker-compose config
+    - docker-compose build
+    - docker-compose push
+  stage: build
+  tags:
+    - build
+    - deploy
+    - dev
+
+deploy backend on rc:
+  <<: *rc
+  script:
+    - docker stack deploy -c swarm-production.yml usdc
+  stage: deploy
+  tags:
+    - build
+    - production
+    - deploy
+
+migrate for rc:
+  <<: *rc
+  script:
+    - docker service rm usdc_api_migrate
+  tags:
+    - build
+    - production
+    - deploy
+  stage: migrate
+
+collectstatic for rc:
+  <<: *rc
+  script:
+    - docker service rm usdc_api_collectstatic
+  tags:
+    - build
+    - production
+    - deploy
+  stage: collectstatic
+
+
+.production: &production
+  variables:
+    BACKEND_IMAGE: 14.241.226.192:5000/usdc/usdc-backend-development:${CI_PIPELINE_ID}
+    BACKEND_ENV: production
+
+    LOG_LEVEL: DEBUG
+    LOGGER_DIR: /usdc/logs
+
+    STATIC_ROOT: /usdc/staticfiles
+    MEDIA_ROOT: /usdc/mediafiles
+    MEDIA_HOST: 'https://portal-api.usdc.vn/media'
+
+    MYSQL_DATABASE: usdc_portal
+    MYSQL_USER: usdc_portal
+    MYSQL_PASSWORD: 3jE6JgmQ5kvadbxG
+    MYSQL_ROOT_PASSWORD: zEd5TvNdS25Jv677
+    MYSQL_HOST: mariadb_bootstrap 
+    MYSQL_PORT: 3306
+    MYSQL_PUBLIC_PORT: 3306
+
+    JWT_SECRET_KEY: '(%#2jnz(bmp(l=%@fvqb(a79*th8pf)c%$qpo-@x9(n(%glw1r'
+    JWT_EXP_DELTA_IN_MINS: 1440
+    JWT_REFRESH_EXP_DELTA_IN_DAYS: 7
+
+    ADMIN_SITE_HEADER: 'usdc Superadmin'
+    ADMIN_SITE_TITLE: 'usdc Superadmin'
+
+    REDIS_HOST: usdc_redis
+    REDIS_PORT: 6379
+    REDIS_PUBLIC_PORT: 6379
+    REDIS_CELERY_DATABASE: 1
+
+    ALERT_API_KEY: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiQUxFUlQiLCJpYXQiOjE2MDMxODA1OTh9.e3cEEb0DJ4h3t_R8VjO3hw3pXDk4j0227PbHAp6qO0E
+  environment: production
+  only:
+    - /^v.*/
+  except:
+    - branches
+
+.deploy production: &deploy_production
+  <<: *production
+  tags:
+    - build
+    - production
+    - deploy
+
+build backend on production:
+  <<: *production
+  script:
+    - pwd
+    - docker-compose config
+    - docker-compose build
+    - docker-compose push
+  stage: build
+  tags:
+    - build
+    - deploy
+    - dev
+
+deploy backend on production:
+  <<: *deploy_production
+  script:
+    - docker stack deploy -c swarm-production.yml usdc
+  stage: deploy
+
+migrate for production:
+  <<: *deploy_production
+  script:
+    - docker service rm usdc_api_migrate
+  stage: migrate
+
+collectstatic for production:
+  <<: *deploy_production
+  script:
+    - docker service rm usdc_api_collectstatic
+  stage: collectstatic
+    

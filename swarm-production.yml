@@ -1,0 +1,149 @@
+version: "3.8"
+
+services:
+
+  redis:
+    image: redis:5.0.8
+    networks:
+      - usdc_network
+    deploy:
+      mode: replicated
+      replicas: 1
+
+  api_migrate:
+    image: ${BACKEND_IMAGE}
+    networks:
+      - usdc_network
+      - mariadb_mariadb_network
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.usdc.portal.api == true
+    environment:
+      LOGGER_DIR: ${LOGGER_DIR}
+      BACKEND_ENV: ${BACKEND_ENV}
+      STATIC_ROOT: ${STATIC_ROOT}
+      MEDIA_ROOT: ${MEDIA_ROOT}
+      MEDIA_HOST: ${MEDIA_HOST}
+
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_EXP_DELTA_IN_MINS: ${JWT_EXP_DELTA_IN_MINS}
+      JWT_REFRESH_EXP_DELTA_IN_DAYS: ${JWT_REFRESH_EXP_DELTA_IN_DAYS}
+
+      ADMIN_SITE_HEADER: ${ADMIN_SITE_HEADER}
+      ADMIN_SITE_TITLE: ${ADMIN_SITE_TITLE}
+
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_CELERY_DATABASE: ${REDIS_CELERY_DATABASE}
+
+      TZ : "Asia/Ho_Chi_Minh" 
+      ALERT_API_KEY: ${ALERT_API_KEY}
+    volumes:
+      - /home/swarm/usdc/api_logs:/usdc/logs
+      - /home/swarm/usdc/staticfiles:/usdc/staticfiles
+      - /home/swarm/usdc/mediafiles:/usdc/mediafiles
+    command: python manage.py migrate --noinput
+
+  api_collectstatic:
+    image: ${BACKEND_IMAGE}
+    networks:
+      - usdc_network
+      - mariadb_mariadb_network
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.usdc.portal.api == true
+    environment:
+      LOGGER_DIR: ${LOGGER_DIR}
+      BACKEND_ENV: ${BACKEND_ENV}
+      STATIC_ROOT: ${STATIC_ROOT}
+      MEDIA_ROOT: ${MEDIA_ROOT}
+      MEDIA_HOST: ${MEDIA_HOST}
+
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_EXP_DELTA_IN_MINS: ${JWT_EXP_DELTA_IN_MINS}
+      JWT_REFRESH_EXP_DELTA_IN_DAYS: ${JWT_REFRESH_EXP_DELTA_IN_DAYS}
+
+      ADMIN_SITE_HEADER: ${ADMIN_SITE_HEADER}
+      ADMIN_SITE_TITLE: ${ADMIN_SITE_TITLE}
+
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_CELERY_DATABASE: ${REDIS_CELERY_DATABASE}
+
+      TZ : "Asia/Ho_Chi_Minh" 
+      ALERT_API_KEY: ${ALERT_API_KEY}
+    volumes:
+      - /home/swarm/usdc/api_logs:/usdc/logs
+      - /home/swarm/usdc/staticfiles:/usdc/staticfiles
+      - /home/swarm/usdc/mediafiles:/usdc/mediafiles
+    command: python manage.py collectstatic --noinput
+
+  api:
+    image: ${BACKEND_IMAGE}
+    networks:
+      - usdc_network
+      - mariadb_mariadb_network
+      - nginx_public
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.usdc.portal.api == true
+    environment:
+      LOGGER_DIR: ${LOGGER_DIR}
+      BACKEND_ENV: ${BACKEND_ENV}
+      STATIC_ROOT: ${STATIC_ROOT}
+      MEDIA_ROOT: ${MEDIA_ROOT}
+      MEDIA_HOST: ${MEDIA_HOST}
+
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_EXP_DELTA_IN_MINS: ${JWT_EXP_DELTA_IN_MINS}
+      JWT_REFRESH_EXP_DELTA_IN_DAYS: ${JWT_REFRESH_EXP_DELTA_IN_DAYS}
+
+      ADMIN_SITE_HEADER: ${ADMIN_SITE_HEADER}
+      ADMIN_SITE_TITLE: ${ADMIN_SITE_TITLE}
+
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_CELERY_DATABASE: ${REDIS_CELERY_DATABASE}
+
+      TZ : "Asia/Ho_Chi_Minh" 
+      ALERT_API_KEY: ${ALERT_API_KEY}
+    volumes:
+      - /home/swarm/usdc/api_logs:/usdc/logs
+      - /home/swarm/usdc/staticfiles:/usdc/staticfiles
+      - /home/swarm/usdc/mediafiles:/usdc/mediafiles
+    command: python manage.py runserver 0.0.0.0:8000
+
+networks:
+  usdc_network:
+    attachable: true
+  mariadb_mariadb_network:
+    external: true
+  nginx_public:
+    external: true

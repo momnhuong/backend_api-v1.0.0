@@ -1,0 +1,89 @@
+version: "3.7"
+
+services:
+  api:
+    image: ${BACKEND_IMAGE}
+    build: .
+    container_name: usdc-backend
+    # command: ./gunicorn_run
+    command: python manage.py runserver 0.0.0.0:8000
+    restart: always
+    ports:
+      - '2030:8000'
+    environment: &backend_environments
+      LOGGER_DIR: ${LOGGER_DIR}
+      BACKEND_ENV: ${BACKEND_ENV}
+      STATIC_ROOT: ${STATIC_ROOT}
+      MEDIA_ROOT: ${MEDIA_ROOT}
+      MEDIA_HOST: ${MEDIA_HOST}
+
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_EXP_DELTA_IN_MINS: ${JWT_EXP_DELTA_IN_MINS}
+      JWT_REFRESH_EXP_DELTA_IN_DAYS: ${JWT_REFRESH_EXP_DELTA_IN_DAYS}
+
+      ADMIN_SITE_HEADER: ${ADMIN_SITE_HEADER}
+      ADMIN_SITE_TITLE: ${ADMIN_SITE_TITLE}
+
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_CELERY_DATABASE: ${REDIS_CELERY_DATABASE}
+
+      TZ : "Asia/Ho_Chi_Minh" 
+      ALERT_API_KEY: ${ALERT_API_KEY}
+
+    volumes:
+      - /var/www/html/usdc/api_logs:/usdc/logs
+      - /var/www/html/usdc/staticfiles:/usdc/staticfiles
+      - /var/www/html/usdc/mediafiles:/usdc/mediafiles
+
+  # celery:
+  #   image: ${BACKEND_IMAGE}
+  #   build: .
+  #   container_name: usdc_celery_backend
+  #   command: celery -A backend worker -B --scheduler django -l INFO
+  #   restart: always
+  #   environment:
+  #     <<: *backend_environments
+
+  #   volumes:
+  #     - /var/www/html/usdc/api_logs:/usdc/logs
+  #     - /var/www/html/usdc/staticfiles:/usdc/staticfiles
+  #     - /var/www/html/usdc/mediafiles:/usdc/mediafiles
+      
+  db:
+    image: mysql:5.7
+    container_name: ${MYSQL_HOST}
+    command: mysqld --character-set-server=utf8 --collation-server=utf8_unicode_ci
+    restart: always
+    ports: 
+      - ${MYSQL_PUBLIC_PORT}:${MYSQL_PORT}
+    environment:
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ : "Asia/Ho_Chi_Minh"
+
+    volumes: 
+      - /containers/usdc-database/conf.d:/etc/mysql/conf.d 
+      - /containers/usdc-database/mysql-data:/var/lib/mysql
+
+  redis:
+    image: redis:5.0.8
+    container_name: ${REDIS_HOST}
+    restart: always
+    ports: 
+      - ${REDIS_PUBLIC_PORT}:${REDIS_PORT}
+
+networks: 
+  default:
+    external:
+      name: nginx-proxy
